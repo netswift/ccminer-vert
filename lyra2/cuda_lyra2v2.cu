@@ -223,8 +223,6 @@ __device__ void reduceDuplexRowtV2(const int rowIn, const int rowInOut, const in
 	}
 }
 
-
-
 __global__
 #if __CUDA_ARCH__ > 500
 __launch_bounds__(128, 1)
@@ -233,35 +231,33 @@ void lyra2v2_gpu_hash_32(uint32_t threads, uint32_t startNounce, uint2 *outputHa
 {
 	const uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
 
+
+
 	vectype state[4];
-
-	uint28 blake2b_IV[2];
-	if (threadIdx.x == 0) {
-
-		((uint16*)blake2b_IV)[0] = make_uint16(
-			 0xf3bcc908, 0x6a09e667 ,
-			 0x84caa73b, 0xbb67ae85 ,
-			 0xfe94f82b, 0x3c6ef372 ,
-			 0x5f1d36f1, 0xa54ff53a ,
-			 0xade682d1, 0x510e527f ,
-			 0x2b3e6c1f, 0x9b05688c ,
-			 0xfb41bd6b, 0x1f83d9ab ,
-			 0x137e2179, 0x5be0cd19 
-		);
-	}
 
 	if (thread < threads)
 	{
- 
+		const uint28 blake2b_IV[2] =
+		{
+			0xf3bcc908, 0x6a09e667,
+			0x84caa73b, 0xbb67ae85,
+			0xfe94f82b, 0x3c6ef372,
+			0x5f1d36f1, 0xa54ff53a,
+			0xade682d1, 0x510e527f,
+			0x2b3e6c1f, 0x9b05688c,
+			0xfb41bd6b, 0x1f83d9ab,
+			0x137e2179, 0x5be0cd19
+		};
+
+		state[2] = ((blake2b_IV)[0]);
+		state[3] = ((blake2b_IV)[1]);
+
 		((uint2*)state)[0] = __ldg(&outputHash[thread]);
 		((uint2*)state)[1] = __ldg(&outputHash[thread + threads]);
 		((uint2*)state)[2] = __ldg(&outputHash[thread + 2 * threads]);
 		((uint2*)state)[3] = __ldg(&outputHash[thread + 3 * threads]);
 
 		 state[1] = state[0];
-
-		 state[2] = ((blake2b_IV)[0]);
-		 state[3] = ((blake2b_IV)[1]);
 
 		 for (int i = 0; i<12; i++)
 			 round_lyra_v35(state);
