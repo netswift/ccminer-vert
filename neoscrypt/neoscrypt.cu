@@ -46,17 +46,25 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	{
 		intensity = (256 * 64 * 5);
 	}
+	else if (strstr(props.name, "980 Ti"))
+	{
+		intensity = (256 * 64 * 5);
+	}
 	else if (strstr(props.name, "750 Ti"))
 	{
-		intensity = (256 * 64 * 7)/2;
+		intensity = 2 << 14;
 	}
 	else if (strstr(props.name, "750"))
 	{
-		intensity = ((256 * 64 * 7) / 2);
+		intensity = 2 << 13;
 	}
 	else if (strstr(props.name, "960"))
 	{
-		intensity = (256 * 64 * 7)/2;
+		intensity = 2 << 14;
+	}
+	else if (strstr(props.name, "950"))
+	{
+		intensity = 2 << 14;
 	}
 
 	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity) / 2;
