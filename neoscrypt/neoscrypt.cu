@@ -40,7 +40,7 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	cudaGetDeviceProperties(&props, device_map[thr_id]);
 	if (strstr(props.name, "970"))
 	{
-		intensity = (256 * 64 * 4);
+		intensity = (256 * 64 * 5);
 	}
 	else if (strstr(props.name, "980"))
 	{
@@ -68,9 +68,6 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	if (!init[thr_id])
 	{
 		cudaSetDevice(device_map[thr_id]);
-//		cudaDeviceReset();
-		//		cudaSetDeviceFlags(cudaStreamNonBlocking);
-		if (!opt_cpumining) cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
 		cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 		CUDA_SAFE_CALL(cudaMalloc(&d_hash1[thr_id], 32 * 128 * sizeof(uint64_t) * throughput));
 		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 32 * 128 * sizeof(uint64_t) * throughput));
