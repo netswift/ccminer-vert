@@ -120,6 +120,7 @@ enum sha_algos {
 	ALGO_X14,
 	ALGO_X15,
 	ALGO_X17,
+	ALGO_VANILLA,
 	ALGO_NEO,
 	ALGO_COUNT
 
@@ -162,6 +163,7 @@ static const char *algo_names[] = {
 	"x14",
 	"x15",
 	"x17",
+	"vanilla",
 	"neoscrypt",
 	""
 };
@@ -182,10 +184,10 @@ bool use_colors = true;
 static bool opt_background = false;
 bool opt_quiet = false;
 static int opt_retries = -1;
-static int opt_fail_pause = 30;
+static int opt_fail_pause = 5;
 static int opt_time_limit = 0;
-int opt_timeout = 300;
-static int opt_scantime = 30;
+int opt_timeout = 270;
+static int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha_algos opt_algo = ALGO_X11;
@@ -304,6 +306,7 @@ Options:\n\
 			x14         X14\n\
 			x15         X15\n\
 			x17         X17 (peoplecurrency)\n\
+			Vanilla (Blake256 8-rounds - double sha256)\n\
 			yescrypt    yescrypt\n\
 			whirl       Whirlcoin (old whirlpool)\n\
 			whirlpoolx  Vanillacoin \n\
@@ -1333,7 +1336,7 @@ static void *miner_thread(void *userdata)
 		if (have_stratum) 
 		{
 			uint32_t sleeptime = 0;
-			while (!work_done && time(NULL) >= (g_work_time + opt_scantime)) 
+			while (!work_done && time(NULL) >= (g_work_time + 60)) 
 			{
 				usleep(100*1000);
 				if (sleeptime > 4) {
@@ -1685,6 +1688,10 @@ static void *miner_thread(void *userdata)
 		case ALGO_X17:
 			rc = scanhash_x17(thr_id, work.data, work.target,
 				max_nonce, &hashes_done);
+			break;
+		case ALGO_VANILLA:
+			rc = scanhash_blake256(thr_id, work.data, work.target,
+				max_nonce, &hashes_done, 8);
 			break;
 
 		case ALGO_NEO:
