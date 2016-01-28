@@ -15,7 +15,7 @@ extern "C" {
 }
 
 /* threads per block and throughput (intensity) */
-#define TPB  512
+#define TPB  640
 
 /* added in sph_blake.c */
 extern "C" int blake256_rounds = 14;
@@ -427,12 +427,11 @@ void blake256_gpu_hash_16(const uint32_t threads, const uint32_t startNonce, uin
 		if (h[7] == 0 && cuda_swab32(h[6]) <= highTarget) {
 #if NBN == 2
 			/* keep the smallest nonce, + extra one if found */
-			if (resNonce[0] > nonce) {
-				resNonce[1] = resNonce[0];
-				resNonce[0] = nonce;
+			{
+				uint32_t tmp = atomicCAS(resNonce, 0xffffffff, nonce);
+				if (tmp != 0xffffffff)
+					resNonce[1] = nonce;
 			}
-			else
-				resNonce[1] = nonce;
 #else
 			resNonce[0] = nonce;
 #endif
@@ -618,15 +617,14 @@ const uint64_t highTarget, const int rounds, const bool trace)
 
 
 
-		if (h[7] == 0 && cuda_swab32(h[6]) <= highTarget) {
+		if (h[7] == 0 && cuda_swab32(h[6]) <= highTarget)
+		{
 #if NBN == 2
-			/* keep the smallest nonce, + extra one if found */
-			if (resNonce[0] > nonce) {
-				resNonce[1] = resNonce[0];
-				resNonce[0] = nonce;
-			}
-			else
-				resNonce[1] = nonce;
+			/* keep the smallest nonce, + extra one if found */		
+				uint32_t tmp = atomicCAS(resNonce, 0xffffffff, nonce);
+				if (tmp != 0xffffffff)
+					resNonce[1] = nonce;
+			
 #else
 			resNonce[0] = nonce;
 #endif
