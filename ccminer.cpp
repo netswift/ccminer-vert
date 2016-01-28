@@ -675,8 +675,8 @@ static int share_result(int result, const char *reason)
 	if (reason) {
 		applog(LOG_WARNING, "reject reason: %s", reason);
 		if (strncmp(reason, "Duplicate share", 15) == 0 && !check_dups) {
-//			applog(LOG_WARNING, "enabling duplicates check feature");
-//			check_dups = true;
+			applog(LOG_WARNING, "enabling duplicates check feature");
+			check_dups = true;
 		}
 		return 0;
 
