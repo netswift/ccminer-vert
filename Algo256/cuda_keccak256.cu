@@ -7,7 +7,7 @@
 
 static uint32_t *d_KNonce[MAX_GPUS];
 
-__constant__ uint32_t pTarget[8];
+__constant__ uint64_t pTarget[1];
 __constant__ uint64_t keccak_round_constants[24] = {
 	0x0000000000000001ull, 0x0000000000008082ull,
 	0x800000000000808aull, 0x8000000080008000ull,
@@ -47,10 +47,10 @@ static void __forceinline__ __device__ keccak_block(uint2 *s)
 {
 	uint2 bc[5], tmpxor[5], tmp1, tmp2;
 
-#if __CUDA_ARCH__ > 500
-#pragma unroll 
-#endif
-	for (int i= 0; i < 24; i++) 
+//#if __CUDA_ARCH__ > 500
+//#endif
+	#pragma unroll 10
+	for (int i = 0; i < 24; i++)
 	{
 #pragma unroll
 		for (uint32_t x = 0; x < 5; x++)
@@ -99,7 +99,7 @@ static void __forceinline__ __device__ keccak_block(uint2 *s)
 	}
 }
 
-__global__	__launch_bounds__(512)
+__global__
 void keccak256_gpu_hash_80(uint32_t threads, uint32_t startNounce,  uint32_t *const __restrict__ resNounce)
 {
 	const uint32_t thread = (blockDim.x * blockIdx.x + threadIdx.x);
@@ -109,7 +109,7 @@ void keccak256_gpu_hash_80(uint32_t threads, uint32_t startNounce,  uint32_t *co
 		uint2 bc[5], tmpxor[5], tmp1, tmp2;
 		uint2 s[25];
 		
-		uint64_t backup = ((uint64_t*)pTarget)[3];
+		uint64_t backup = pTarget[0];
 
 		s[9] = make_uint2(c_PaddedMessage80[9].x, cuda_swab32(nounce));
 		s[10] = make_uint2(1, 0);
@@ -158,13 +158,18 @@ void keccak256_gpu_hash_80(uint32_t threads, uint32_t startNounce,  uint32_t *co
 		tmp1 = s[0]; tmp2 = s[1]; s[0] = bitselect(s[0] ^ s[2], s[0], s[1]); 
 		s[0].x ^= 1;
 		s[1] = bitselect(s[1] ^ s[3], s[1], s[2]); s[2] = bitselect(s[2] ^ s[4], s[2], s[3]); s[3] = bitselect(s[3] ^ tmp1, s[3], s[4]); s[4] = bitselect(s[4] ^ tmp2, s[4], tmp1);
-		tmp1 = s[5]; tmp2 = s[6]; s[5] = bitselect(s[5] ^ s[7], s[5], s[6]); s[6] = bitselect(s[6] ^ s[8], s[6], s[7]); s[7] = bitselect(s[7] ^ s[9], s[7], s[8]); s[8] = bitselect(s[8] ^ tmp1, s[8], s[9]); s[9] = bitselect(s[9] ^ tmp2, s[9], tmp1);
+		tmp1 = s[5]; tmp2 = s[6]; s[5] = bitselect(s[5] ^ s[7], s[5], s[6]); s[6] = bitselect(s[6] ^ s[8], s[6], s[7]); 
+		s[7] = bitselect(s[7] ^ s[9], s[7], s[8]); s[8] = bitselect(s[8] ^ tmp1, s[8], s[9]); s[9] = bitselect(s[9] ^ tmp2, s[9], tmp1);
 		tmp1 = s[10]; tmp2 = s[11]; s[10] = bitselect(s[10] ^ s[12], s[10], s[11]); s[11] = bitselect(s[11] ^ s[13], s[11], s[12]); s[12] = bitselect(s[12] ^ s[14], s[12], s[13]); s[13] = bitselect(s[13] ^ tmp1, s[13], s[14]); s[14] = bitselect(s[14] ^ tmp2, s[14], tmp1);
 		tmp1 = s[15]; tmp2 = s[16]; s[15] = bitselect(s[15] ^ s[17], s[15], s[16]); s[16] = bitselect(s[16] ^ s[18], s[16], s[17]); s[17] = bitselect(s[17] ^ s[19], s[17], s[18]); s[18] = bitselect(s[18] ^ tmp1, s[18], s[19]); s[19] = bitselect(s[19] ^ tmp2, s[19], tmp1);
 		tmp1 = s[20]; tmp2 = s[21]; s[20] = bitselect(s[20] ^ s[22], s[20], s[21]); s[21] = bitselect(s[21] ^ s[23], s[21], s[22]); s[22] = bitselect(s[22] ^ s[24], s[22], s[23]); s[23] = bitselect(s[23] ^ tmp1, s[23], s[24]); s[24] = bitselect(s[24] ^ tmp2, s[24], tmp1);
 
-#pragma unroll 2
-		for (int i = 1; i < 23; i++) 
+		#if __CUDA_ARCH__ > 500
+		#pragma unroll 10
+		#else
+		#pragma unroll 2
+		#endif
+		for (int i = 1; i < 23; i++)
 		{
 
 #pragma unroll
@@ -282,11 +287,11 @@ void keccak256_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startNounce, u
 }
 
 __host__
-void keccak256_setBlock_80(void *pdata,const void *pTargetIn)
+void keccak256_setBlock_80(void *pdata,const uint64_t *pTargetIn)
 {
 	unsigned char PaddedMessage[80];
 	memcpy(PaddedMessage, pdata, 80);
-	CUDA_SAFE_CALL(cudaMemcpyToSymbol(pTarget, pTargetIn, 8*sizeof(uint32_t), 0, cudaMemcpyHostToDevice));
+	CUDA_SAFE_CALL(cudaMemcpyToSymbol(pTarget, &pTargetIn[3], 2*sizeof(uint32_t), 0, cudaMemcpyHostToDevice));
 	CUDA_SAFE_CALL(cudaMemcpyToSymbol(c_PaddedMessage80, PaddedMessage, 10*sizeof(uint64_t), 0, cudaMemcpyHostToDevice));
 }
 

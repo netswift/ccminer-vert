@@ -17,7 +17,7 @@ extern "C"
 static uint32_t h_nounce[MAX_GPUS][2];
 
 extern void keccak256_cpu_init(int thr_id, uint32_t threads);
-extern void keccak256_setBlock_80(void *pdata,const void *ptarget);
+extern void keccak256_setBlock_80(void *pdata,const uint64_t *ptarget);
 extern void keccak256_cpu_hash_80(int thr_id, uint32_t threads, uint32_t startNounce, uint32_t *h_nounce);
 
 // CPU Hash
@@ -65,7 +65,7 @@ extern "C" int scanhash_keccak256(int thr_id, uint32_t *pdata,
 		be32enc(&endiandata[k], ((uint32_t*)pdata)[k]);
 	}
 
-	keccak256_setBlock_80((void*)endiandata, ptarget);
+	keccak256_setBlock_80((void*)endiandata, (uint64_t *)ptarget);
 
 	do {
 
