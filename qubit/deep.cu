@@ -60,8 +60,10 @@ extern "C" int scanhash_deep(int thr_id, uint32_t *pdata,
 	unsigned long *hashes_done)
 {
 	const uint32_t first_nonce = pdata[19];
-//	uint32_t endiandata[20];
-	uint32_t throughput = device_intensity(device_map[thr_id], __func__, 1U << 22); // 256*256*8
+	uint32_t intensity = ((1 << 22));
+	if (device_sm[device_map[thr_id]] > 500) intensity = 1 << 23;
+	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity);
+
 	throughput = min(throughput, (max_nonce - first_nonce));
 
 	if (opt_benchmark)

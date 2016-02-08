@@ -40,8 +40,10 @@ extern "C" int scanhash_doom(int thr_id, uint32_t *pdata,
 {
 	const uint32_t first_nonce = pdata[19];
 	uint32_t endiandata[20];
-	uint32_t throughput = device_intensity(device_map[thr_id], __func__, (1 << 27));
-	throughput = min(throughput, (max_nonce - first_nonce));
+	uint32_t intensity = ((1 << 27));
+	if (device_sm[device_map[thr_id]] > 500) intensity = 1 << 30;
+	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity);
+	throughput = min(throughput, max_nonce - first_nonce);
 
 	if (opt_benchmark)
 		((uint32_t*)ptarget)[7] = 0x000f;
@@ -57,7 +59,7 @@ extern "C" int scanhash_doom(int thr_id, uint32_t *pdata,
 
 //		CUDA_SAFE_CALL(cudaMalloc(&d_hash[thr_id], 16 * sizeof(uint32_t) * throughput));
 
-		qubit_luffa512_cpu_init(thr_id, (int) throughput);
+		qubit_luffa512_cpu_init(thr_id, throughput);
 
 		init[thr_id] = true;
 	}
@@ -69,7 +71,7 @@ extern "C" int scanhash_doom(int thr_id, uint32_t *pdata,
 
 	do {
 
-		uint32_t foundNonce = qubit_luffa512_cpu_finalhash_80(thr_id, (int) throughput, pdata[19], d_hash[thr_id]);
+		uint32_t foundNonce = qubit_luffa512_cpu_finalhash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		if (foundNonce != UINT32_MAX)
 		{
 			const uint32_t Htarg = ptarget[7];
