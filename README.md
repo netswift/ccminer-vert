@@ -7,7 +7,7 @@ Reforked and optimized by sp-hash@github and KlausT@github
 
 SP-HASH: BTC donation address: 1CTiNJyoUmbdMRACtteRWXhGqtSETYd6Vd
 
-A part of the recent algos were originally wrote by [djm34](https://github.com/djm34).
+A part of the recent algos were originally written by [djm34](https://github.com/djm34).
 
 This variant was tested and built on Linux (ubuntu server 14.04) and VStudio 2013 on Windows 7.
 

@@ -2729,7 +2729,7 @@ int main(int argc, char *argv[])
 	printf("using Nvidia CUDA Toolkit %d.%d\n\n", CUDART_VERSION / 1000, (CUDART_VERSION % 1000) / 10);
 	printf("  Based on pooler cpuminer 2.3.2 and the tpruvot@github fork\n");
 	printf("  CUDA support by Christian Buchner, Christian H. and DJM34\n");
-	printf("  Includes optimizations implemented by sp, klaust, tpruvot, tsiv and pallas.\n\n");
+	printf("  Includes optimizations implemented by sp, klaust, tpruvot and tsiv.\n\n");
 
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
