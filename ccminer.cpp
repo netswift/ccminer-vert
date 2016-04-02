@@ -120,6 +120,7 @@ enum sha_algos {
 	ALGO_X14,
 	ALGO_X15,
 	ALGO_X17,
+	ALGO_VANILLA,
 	ALGO_NEO,
 	ALGO_COUNT
 
@@ -162,6 +163,7 @@ static const char *algo_names[] = {
 	"x14",
 	"x15",
 	"x17",
+	"vanilla",
 	"neoscrypt",
 	""
 };
@@ -182,10 +184,10 @@ bool use_colors = true;
 static bool opt_background = false;
 bool opt_quiet = false;
 static int opt_retries = -1;
-static int opt_fail_pause = 30;
+static int opt_fail_pause = 5;
 static int opt_time_limit = 0;
-int opt_timeout = 300;
-static int opt_scantime = 30;
+int opt_timeout = 270;
+static int opt_scantime = 5;
 static json_t *opt_config;
 static const bool opt_time = true;
 static enum sha_algos opt_algo = ALGO_X11;
@@ -304,6 +306,7 @@ Options:\n\
 			x14         X14\n\
 			x15         X15\n\
 			x17         X17 (peoplecurrency)\n\
+			Vanilla (Blake256 8-rounds - double sha256)\n\
 			yescrypt    yescrypt\n\
 			whirl       Whirlcoin (old whirlpool)\n\
 			whirlpoolx  Vanillacoin \n\
@@ -672,8 +675,8 @@ static int share_result(int result, const char *reason)
 	if (reason) {
 		applog(LOG_WARNING, "reject reason: %s", reason);
 		if (strncmp(reason, "Duplicate share", 15) == 0 && !check_dups) {
-//			applog(LOG_WARNING, "enabling duplicates check feature");
-//			check_dups = true;
+			applog(LOG_WARNING, "enabling duplicates check feature");
+			check_dups = true;
 		}
 		return 0;
 
@@ -1333,7 +1336,7 @@ static void *miner_thread(void *userdata)
 		if (have_stratum) 
 		{
 			uint32_t sleeptime = 0;
-			while (!work_done && time(NULL) >= (g_work_time + opt_scantime)) 
+			while (!work_done && time(NULL) >= (g_work_time + 60)) 
 			{
 				usleep(100*1000);
 				if (sleeptime > 4) {
@@ -1455,6 +1458,7 @@ static void *miner_thread(void *userdata)
 			case ALGO_KECCAK:
 			case ALGO_BLAKECOIN:
 			case ALGO_BLAKE:
+			case ALGO_VANILLA:
 			case ALGO_PENTABLAKE:
 			case ALGO_WHC:
 				minmax = 0x70000000U;
@@ -1685,6 +1689,10 @@ static void *miner_thread(void *userdata)
 		case ALGO_X17:
 			rc = scanhash_x17(thr_id, work.data, work.target,
 				max_nonce, &hashes_done);
+			break;
+		case ALGO_VANILLA:
+			rc = scanhash_blake256(thr_id, work.data, work.target,
+				max_nonce, &hashes_done, 8);
 			break;
 
 		case ALGO_NEO:
@@ -2723,7 +2731,7 @@ int main(int argc, char *argv[])
 	printf("using Nvidia CUDA Toolkit %d.%d\n\n", CUDART_VERSION / 1000, (CUDART_VERSION % 1000) / 10);
 	printf("  Based on pooler cpuminer 2.3.2 and the tpruvot@github fork\n");
 	printf("  CUDA support by Christian Buchner, Christian H. and DJM34\n");
-	printf("  Includes optimizations implemented by sp, klaust, tpruvot, tsiv and pallas.\n\n");
+	printf("  Includes optimizations implemented by sp, klaust, tpruvot and tsiv.\n\n");
 
 	rpc_user = strdup("");
 	rpc_pass = strdup("");
