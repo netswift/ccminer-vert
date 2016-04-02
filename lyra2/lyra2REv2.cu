@@ -86,7 +86,7 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 	const uint32_t first_nonce = pdata[19];
 	uint32_t intensity = 256 * 256 * 8;
 	uint32_t tpb = 8;
-	bool mergeblakekeccak = false;
+//	bool mergeblakekeccak = false;
 	cudaDeviceProp props;
 	cudaGetDeviceProperties(&props, device_map[thr_id]);
 	if (strstr(props.name, "970"))
@@ -108,13 +108,13 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 	{
 		intensity = 256 * 256 * 10;
 		tpb = 16;
-		mergeblakekeccak = true;
+//		mergeblakekeccak = true;
 	}
 	else if (strstr(props.name, "750"))
 	{
 		intensity = 256 * 256 * 5;
 		tpb = 16;
-		mergeblakekeccak = true;
+//		mergeblakekeccak = true;
 	}
 	else if (strstr(props.name, "960"))
 	{
@@ -158,16 +158,17 @@ extern "C" int scanhash_lyra2v2(int thr_id, uint32_t *pdata,
 	do {
 		uint32_t foundNonce[2] = { 0, 0 };
 
-		if (mergeblakekeccak)
-		{
+//		if (mergeblakekeccak)
+//		{
 			blakeKeccak256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
-		}
+
+/*		}
 		else
 		{
 			blake256_cpu_hash_80(thr_id, throughput, pdata[19], d_hash[thr_id]);
 			keccak256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		}
-
+*/
 		cubehash256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		lyra2v2_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id], tpb);
 		skein256_cpu_hash_32(thr_id, throughput, pdata[19], d_hash[thr_id]);

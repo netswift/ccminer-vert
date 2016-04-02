@@ -187,7 +187,6 @@ __device__ void reduceDuplexRowtV2(const int rowIn, const int rowInOut, const in
 		#pragma unroll 
 		for (j = 0; j < 11; j++)
 		((uint2*)state2)[j + 1] ^= ((uint2*)state)[j];
-
 #if __CUDA_ARCH__ == 500
 		if (rowInOut != rowOut) 
 		{

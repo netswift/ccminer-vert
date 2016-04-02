@@ -145,8 +145,15 @@ extern "C" int scanhash_quark(int thr_id, uint32_t *pdata,
 
 	uint32_t intensity = 256*256*57;
 	intensity = intensity + ((1 << 22));
-	if (device_sm[device_map[thr_id]] > 500) intensity= 1 << 24;
+	cudaDeviceProp props;
+	cudaGetDeviceProperties(&props, device_map[thr_id]);
 
+	if (device_sm[device_map[thr_id]] > 500) intensity= 1 << 25;
+
+	if (strstr(props.name, "980 Ti"))
+	{
+		intensity = 1 << 25;
+	}
 	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity); // 256*4096
 	throughput = min(throughput, max_nonce - first_nonce);
 

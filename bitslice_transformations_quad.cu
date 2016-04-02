@@ -176,8 +176,7 @@ void from_bitslice_quad_final(const uint32_t *const __restrict__ input, uint32_t
 		output[10] = __byte_perm(output[2], output[10], 0x7632);
 		SWAP4_final(output[6], output[10]);
 		output[6] = __byte_perm(output[6], 0, 0x3232);
-	}
-	else
+	} else
 	{
 		output[0] = __byte_perm(input[0], input[4], perm);
 		output[2] = __byte_perm(input[1], input[5], perm);
@@ -212,8 +211,7 @@ void from_bitslice_quad_final(const uint32_t *const __restrict__ input, uint32_t
 			output[2] = __byte_perm(output[2], 0, 0x1032);
 			output[8] = __byte_perm(output[8], 0, 0x1032);
 			output[10] = __byte_perm(output[10], 0, 0x1032);
-		}
-		else
+		}else
 		{
 			output[4] = output[0];
 			output[6] = output[2];
