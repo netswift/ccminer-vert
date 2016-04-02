@@ -44,7 +44,7 @@ extern void cuda_jh512Keccak512_cpu_hash_64( uint32_t threads, uint32_t startNou
 
 
 
-extern void x11_luffaCubehash512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash);
+extern void x11_luffaCubehash512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, uint32_t luffacubethreads);
 
 extern void x11_shavite512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, uint32_t shavitethreads);
 
@@ -201,6 +201,7 @@ extern "C" int scanhash_x13(int thr_id, uint32_t *pdata,
 	}
 	//	cuda_check_cpu_setTarget(ptarget);
 	x13_fugue512_cpu_setTarget(ptarget);
+	uint32_t luffacubehashthreads = (device_sm[device_map[thr_id]] == 500) ? 512 : 256;
 
 	do {
 		quark_blake512_cpu_hash_80(throughput, pdata[19], d_hash[thr_id]);
@@ -208,7 +209,7 @@ extern "C" int scanhash_x13(int thr_id, uint32_t *pdata,
 		quark_groestl512_cpu_hash_64(throughput, pdata[19], NULL, d_hash[thr_id]);
 		quark_skein512_cpu_hash_64(throughput, pdata[19], NULL, d_hash[thr_id]);
 		cuda_jh512Keccak512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id]);
-		x11_luffaCubehash512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id]);
+		x11_luffaCubehash512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id], luffacubehashthreads);
 		x11_shavite512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id], shavitethreads);
 		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id],simdthreads);
 		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);

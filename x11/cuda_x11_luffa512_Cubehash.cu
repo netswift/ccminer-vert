@@ -1199,7 +1199,7 @@ void x11_luffaCubehash512_gpu_hash_64(uint32_t threads, uint32_t startNounce, ui
 	}
 }
 
-__host__ void x11_luffaCubehash512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, const uint32_t luffacubethreads)
+__host__ void x11_luffaCubehash512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, uint32_t luffacubethreads)
 {
 	const uint32_t threadsperblock = luffacubethreads;
 

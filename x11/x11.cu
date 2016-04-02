@@ -46,6 +46,7 @@ extern void cuda_jh512Keccak512_cpu_hash_64(uint32_t threads, uint32_t startNoun
 extern void x11_luffaCubehash512_cpu_init(int thr_id, uint32_t threads);
 extern void x11_luffaCubehash512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, uint32_t luffacubehashthreads);
 
+
 extern void x11_shavite512_cpu_init(int thr_id, uint32_t threads);
 extern void x11_shavite512_cpu_hash_64(uint32_t threads, uint32_t startNounce, uint32_t *d_hash, uint32_t shavitethreads);
 
