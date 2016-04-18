@@ -32,6 +32,8 @@ extern "C"
 #include "cuda_helper.h"
 
 static uint32_t *d_hash[MAX_GPUS];
+static uint32_t endiandata[MAX_GPUS][20];
+
 
 extern void quark_blake512_cpu_init(int thr_id);
 extern void quark_blake512_cpu_setBlock_80(uint64_t *pdata);
@@ -183,22 +185,25 @@ extern "C" int scanhash_x17(int thr_id, uint32_t *pdata,
 {
 	const uint32_t first_nonce = pdata[19];
 
-	int intensity = 256 * 256 * 9;
+	int intensity = 256 * 256 * 13;
+	if (device_sm[device_map[thr_id]] == 520)  intensity = 256 * 256 * 22;
+	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity); // 19=256*256*8;
+	throughput = min(throughput, (max_nonce - first_nonce));
 	uint32_t simdthreads = (device_sm[device_map[thr_id]] > 500) ? 64 : 32;
 	uint32_t shavitethreads = (device_sm[device_map[thr_id]] == 500) ? 256 : 320;
 	uint32_t luffacubehashthreads = (device_sm[device_map[thr_id]] == 500) ? 512 : 256;
 
-	if (device_sm[device_map[thr_id]] == 520)  intensity = 256 * 256 * 15;
-	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity); // 19=256*256*8;
-	throughput = min(throughput, (max_nonce - first_nonce));
-
 	if (opt_benchmark)
-		((uint32_t*)ptarget)[7] = 0x00f;
+		((uint32_t*)ptarget)[7] = 0xff;
 
 	if (!init[thr_id])
 	{
 		cudaSetDevice(device_map[thr_id]);
 		if (!opt_cpumining) cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+		if (opt_n_gputhreads == 1)
+		{
+			cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+		}
 		cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 
 		quark_skein512_cpu_init(thr_id);
@@ -212,14 +217,13 @@ extern "C" int scanhash_x17(int thr_id, uint32_t *pdata,
 
 		CUDA_CALL_OR_RET_X(cudaMalloc(&d_hash[thr_id], 16 * sizeof(uint32_t) * throughput), 0);
 		quark_blake512_cpu_init(thr_id);
-		cuda_check_cpu_init(thr_id, throughput);
 
+		cuda_check_cpu_init(thr_id, throughput);
 		init[thr_id] = true;
 	}
 
-	uint32_t endiandata[20];
-	for (int k=0; k < 20; k++)
-		be32enc(&endiandata[k], ((uint32_t*)pdata)[k]);
+	for (int k = 0; k < 20; k++)
+		be32enc(&endiandata[thr_id][k], ((uint32_t*)pdata)[k]);
 
 	if (opt_n_gputhreads > 1)
 	{
@@ -227,35 +231,37 @@ extern "C" int scanhash_x17(int thr_id, uint32_t *pdata,
 	}
 	else
 	{
-		quark_blake512_cpu_setBlock_80( (uint64_t *)endiandata[thr_id]);
+		quark_blake512_cpu_setBlock_80((uint64_t *)endiandata[thr_id]);
 	}
 	cuda_check_cpu_setTarget(ptarget);
 
 	do {
-		// Hash with CUDA
+
 		quark_blake512_cpu_hash_80(throughput, pdata[19], d_hash[thr_id]);
 		quark_bmw512_cpu_hash_64(throughput, pdata[19], NULL, d_hash[thr_id]);
 		quark_groestl512_cpu_hash_64(throughput, pdata[19], NULL, d_hash[thr_id]);
 		quark_skein512_cpu_hash_64(throughput, pdata[19], NULL, d_hash[thr_id]);
 		cuda_jh512Keccak512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id]);
+
 		x11_luffaCubehash512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id], luffacubehashthreads);
-		x11_shavite512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id],shavitethreads);
+		x11_shavite512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id], shavitethreads);
 		x11_simd512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id], simdthreads);
 		x11_echo512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		x13_hamsi512_cpu_hash_64(throughput, pdata[19], d_hash[thr_id]);
 		x13_fugue512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
-		x14_shabal512_cpu_hash_64(thr_id, throughput, pdata[19],d_hash[thr_id]);
-		x15_whirlpool_cpu_hash_64(thr_id, throughput, pdata[19],d_hash[thr_id]);
+		x14_shabal512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
+		x15_whirlpool_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		x17_sha512_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
-		x17_haval256_cpu_hash_64(thr_id, throughput, pdata[19],d_hash[thr_id]);
+		x17_haval256_cpu_hash_64(thr_id, throughput, pdata[19], d_hash[thr_id]);
 
 		uint32_t foundNonce = cuda_check_hash(thr_id, throughput, pdata[19], d_hash[thr_id]);
 		if (foundNonce != UINT32_MAX)
 		{
 			const uint32_t Htarg = ptarget[7];
 			uint32_t vhash64[8];
-			be32enc(&endiandata[19], foundNonce);
-			x17hash(vhash64, endiandata);
+			/* check now with the CPU to confirm */
+			be32enc(&endiandata[thr_id][19], foundNonce);
+			x17hash(vhash64, endiandata[thr_id]);
 
 			if (vhash64[7] <= Htarg && fulltest(vhash64, ptarget)) {
 				int res = 1;
