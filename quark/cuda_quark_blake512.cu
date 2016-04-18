@@ -1,3 +1,5 @@
+//Kernal written by SP April-2016
+
 #include <stdio.h>
 #include <memory.h>
 
@@ -10,9 +12,9 @@
 
 // die Message it Padding zur Berechnung auf der GPU
 static uint2* c_PaddedMessage80[MAX_GPUS]; // padded message (80 bytes + padding)
-__constant__ uint2 c_PaddedM[16];
+__constant__ uint2 __align__(16) c_PaddedM[16];
 __constant__ uint28 Hostprecalc[4];
-__constant__ uint2 pre[220];
+__constant__ uint2 __align__(16) pre[224];
 
 
 __constant__ uint2 c_u512[16] =
@@ -40,6 +42,28 @@ __constant__ uint2 c_u512[16] =
 	v[b] = ROR2(v[b] ^ v[c], 11); \
 	}
 
+#define GSPREC_SP_HI(a,b,c,d,idx1,idx2) { \
+	v[a] += (block[idx2] ^ u512[idx1]) + v[b]; \
+	v[d] = eorswap32( v[d] , v[a]); \
+	v[c] += v[d]; \
+	v[b] = ROR2(v[b] ^ v[c], 25); \
+	v[a] += (pre[i++]) + v[b]; \
+	v[d] = ROR16(v[d] ^ v[a]); \
+	v[c] += v[d]; \
+	v[b] = ROR2(v[b] ^ v[c], 11); \
+	}
+
+#define GSPREC_SP_LO(a,b,c,d,idx1,idx2) { \
+	v[a] += (pre[i++]) + v[b]; \
+	v[d] = eorswap32( v[d] , v[a]); \
+	v[c] += v[d]; \
+	v[b] = ROR2(v[b] ^ v[c], 25); \
+	v[a] += (block[idx1] ^ u512[idx2]) + v[b]; \
+	v[d] = ROR16(v[d] ^ v[a]); \
+	v[c] += v[d]; \
+	v[b] = ROR2(v[b] ^ v[c], 11); \
+	}
+
 #define Gprecalc(a,b,c,d,idx1,idx2) { \
 	v[a] += (block[idx2] ^ u512[idx1]) + v[b]; \
 	v[d] = eorswap32( v[d] , v[a]); \
@@ -55,6 +79,14 @@ __constant__ uint2 c_u512[16] =
 	prehost[i++] = (block[idx2] ^ u512[idx1]); \
 	prehost[i++] = (block[idx1] ^ u512[idx2]); \
 	}
+
+#define RSPRECHOSTLO(idx1,idx2) { \
+	prehost[i++] = (block[idx2] ^ u512[idx1]); \
+	}
+#define RSPRECHOSTHI(idx1,idx2) { \
+	prehost[i++] = (block[idx1] ^ u512[idx2]); \
+	}
+
 
 #define GprecalcHost(a,b,c,d,idx1,idx2) { \
 	v[a] += (block[idx2] ^ u512[idx1]) + v[b]; \
@@ -436,12 +468,14 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 		outpt[2] = Hostprecalc[2];
 		outpt[3] = Hostprecalc[3];
 
+		int i = 0;
+
 		v[0] += (block[9] ^ c_u512[8]);
 		v[15] = ROR16(v[15] ^ v[0]);
 		v[10] += v[15];
 		v[5] = ROR2(v[5] ^ v[10], 11);
 
-		Gprecalc(0, 4, 8, 12, 0xa, 0xe)
+		GSPREC_SP(0, 4, 8, 12)
 
 			//		Gprecalc(1, 5, 9, 13, 0x8, 0x4)
 			v[1] += v[5];
@@ -449,7 +483,7 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 		v[9] += v[13];
 
 		v[5] = ROR2(v[5] ^ v[9], 25);
-		v[1] += (block[8] ^ c_u512[4]) + v[5];
+		v[1] += (pre[i++]) + v[5];
 		v[13] = ROR16(v[13] ^ v[1]);
 		v[9] += v[13];
 		v[5] = ROR2(v[5] ^ v[9], 11);
@@ -459,7 +493,7 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 		v[14] = eorswap32(v[14], v[2]);
 		v[10] += v[14];
 		v[6] = ROR2(v[6] ^ v[10], 25);
-		v[2] += (block[0xf] ^ c_u512[9]) + v[6];
+		v[2] += pre[i++] + v[6];
 		v[14] = ROR16(v[14] ^ v[2]);
 		v[10] += v[14];
 		v[6] = ROR2(v[6] ^ v[10], 11);
@@ -468,12 +502,11 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 		v[15] = eorswap32(v[15], v[3]);
 		v[11] += v[15];
 		v[7] = ROR2(v[7] ^ v[11], 25);
-		v[3] += (block[6] ^ c_u512[0xd]) + v[7];
+		v[3] += pre[i++]  + v[7]; 
 		v[15] = ROR16(v[15] ^ v[3]);
 		v[11] += v[15];
 		v[7] = ROR2(v[7] ^ v[11], 11);
 
-		int i = 0;
 			GSPREC_SP(0, 5, 10, 15)
 			GSPREC_SP(1, 6, 11, 12)
 			GSPREC_SP(2, 7, 8, 13)
@@ -486,9 +519,9 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 			GSPREC_SP(0, 5, 10, 15)
 			GSPREC_SP(1, 6, 11, 12)
 			GSPREC_SP(2, 7, 8, 13)
-						Gprecalc(3, 4, 9, 14, 0x4, 0x9)
+					GSPREC_SP_HI(3, 4, 9, 14, 0x4, 0x9)
 
-						Gprecalc(0, 4, 8, 12, 0x9, 0x7)
+					GSPREC_SP_LO(0, 4, 8, 12, 0x9, 0x7)
 			GSPREC_SP(1, 5, 9, 13)
 			GSPREC_SP(2, 6, 10, 14)
 			GSPREC_SP(3, 7, 11, 15)
@@ -498,98 +531,7 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 			GSPREC_SP(3, 4, 9, 14)
 
 
-				Gprecalc(0, 4, 8, 12, 0x0, 0x9)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-					Gprecalc(3, 4, 9, 14, 0x9, 0x1)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-					Gprecalc(2, 7, 8, 13, 0x2, 0x9)
-			GSPREC_SP(3, 4, 9, 14)
-
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-					Gprecalc(3, 7, 11, 15, 0x9, 0x3)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-					Gprecalc(1, 5, 9, 13, 0x9, 0xe)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-					Gprecalc(1, 6, 11, 12, 0xe, 0x9)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-					Gprecalc(0, 5, 10, 15, 0x9, 0x8)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-					Gprecalc(2, 6, 10, 14, 0xf, 0x9)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-			GSPREC_SP(0, 4, 8, 12)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-					Gprecalc(3, 4, 9, 14, 0x4, 0x9)
-
-					Gprecalc(0, 4, 8, 12, 0x9, 0x7)
-			GSPREC_SP(1, 5, 9, 13)
-			GSPREC_SP(2, 6, 10, 14)
-			GSPREC_SP(3, 7, 11, 15)
-			GSPREC_SP(0, 5, 10, 15)
-			GSPREC_SP(1, 6, 11, 12)
-			GSPREC_SP(2, 7, 8, 13)
-			GSPREC_SP(3, 4, 9, 14)
-
-					Gprecalc(0, 4, 8, 12, 0x0, 0x9)
+				GSPREC_SP_HI(0, 4, 8, 12, 0x0, 0x9)
 			GSPREC_SP(1, 5, 9, 13)
 			GSPREC_SP(2, 6, 10, 14)
 			GSPREC_SP(3, 7, 11, 15)
@@ -605,7 +547,98 @@ void quark_blake512_gpu_hash_80(uint32_t threads, uint32_t startNounce, uint2 *o
 			GSPREC_SP(0, 5, 10, 15)
 			GSPREC_SP(1, 6, 11, 12)
 			GSPREC_SP(2, 7, 8, 13)
-					Gprecalc(3, 4, 9, 14, 0x9, 0x1)
+				GSPREC_SP_LO(3, 4, 9, 14, 0x9, 0x1)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+				GSPREC_SP_HI(2, 7, 8, 13, 0x2, 0x9)
+			GSPREC_SP(3, 4, 9, 14)
+
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+				GSPREC_SP_LO(3, 7, 11, 15, 0x9, 0x3)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+				GSPREC_SP_LO(1, 5, 9, 13, 0x9, 0xe)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+				GSPREC_SP_HI(1, 6, 11, 12, 0xe, 0x9)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+				GSPREC_SP_LO(0, 5, 10, 15, 0x9, 0x8)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+				GSPREC_SP_HI(2, 6, 10, 14, 0xf, 0x9)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+				GSPREC_SP_HI(3, 4, 9, 14, 0x4, 0x9)
+
+				GSPREC_SP_LO(0, 4, 8, 12, 0x9, 0x7)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+				GSPREC_SP_HI(0, 4, 8, 12, 0x0, 0x9)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+			GSPREC_SP(3, 4, 9, 14)
+
+			GSPREC_SP(0, 4, 8, 12)
+			GSPREC_SP(1, 5, 9, 13)
+			GSPREC_SP(2, 6, 10, 14)
+			GSPREC_SP(3, 7, 11, 15)
+			GSPREC_SP(0, 5, 10, 15)
+			GSPREC_SP(1, 6, 11, 12)
+			GSPREC_SP(2, 7, 8, 13)
+				GSPREC_SP_LO(3, 4, 9, 14, 0x9, 0x1)
 
 
 /*			Gprecalc(0, 5, 10, 15, 0xc, 0x1)
@@ -782,7 +815,7 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 	CUDA_SAFE_CALL(cudaMemcpyToSymbol(c_PaddedM, PaddedMessage, 10 * sizeof(uint64_t), 0, cudaMemcpyHostToDevice));
 
 	uint64_t block[16];
-	uint64_t  prehost[250];
+	uint64_t  prehost[224];
 
 	uint64_t *peker = (uint64_t *)&PaddedMessage[0];
 
@@ -854,7 +887,13 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 	v[3] += (block[0xd] ^ u512[6]) + v[7];
 
 	int i = 0;
-	RSPRECHOST(0xc, 0x1)
+		RSPRECHOST(0xa, 0xe);
+		prehost[i++] = block[8] ^ u512[4];
+		prehost[i++] = block[0xf] ^ u512[9];
+		prehost[i++] = block[6] ^ u512[0xd];
+
+
+		RSPRECHOST(0xc, 0x1)
 		RSPRECHOST(0x2, 0x0)
 		RSPRECHOST(0x7, 0xb)
 		RSPRECHOST(0x3, 0x5)
@@ -866,7 +905,9 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0xe, 0xa)
 		RSPRECHOST(0x6, 0x3)
 		RSPRECHOST(0x1, 0x7)
+			RSPRECHOSTHI(0x4, 0x9)
 
+			RSPRECHOSTLO(0x9, 0x7)
 		RSPRECHOST(0x1, 0x3)
 		RSPRECHOST(0xc, 0xd)
 		RSPRECHOST(0xe, 0xb)
@@ -875,6 +916,7 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0x0, 0x4)
 		RSPRECHOST(0x8, 0xf)
 
+			RSPRECHOSTHI(0, 0x9)
 		RSPRECHOST(0x7, 0x5)
 		RSPRECHOST(0x4, 0x2)
 		RSPRECHOST(0xf, 0xa)
@@ -890,6 +932,7 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0xd, 0x4)
 		RSPRECHOST(0x5, 0x7)
 		RSPRECHOST(0xe, 0xf)
+			RSPRECHOSTLO(0x9, 0x1)
 
 		RSPRECHOST(0x5, 0xc)
 		RSPRECHOST(0xf, 0x1)
@@ -897,17 +940,20 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0xa, 0x4)
 		RSPRECHOST(0x7, 0x0)
 		RSPRECHOST(0x3, 0x6)
+			RSPRECHOSTHI(0x2, 0x9)
 		RSPRECHOST(0xb, 0x8)
 
 		RSPRECHOST(0xb, 0xd)
 		RSPRECHOST(0xe, 0x7)
 		RSPRECHOST(0x1, 0xc)
+			RSPRECHOSTLO(0x9, 0x3)
 		RSPRECHOST(0x0, 0x5)
 		RSPRECHOST(0x4, 0xf)
 		RSPRECHOST(0x6, 0x8)
 		RSPRECHOST(0xa, 0x2)
 
 		RSPRECHOST(0xf, 0x6)
+			RSPRECHOSTLO(0x9, 0xe)
 		RSPRECHOST(0x3, 0xb)
 		RSPRECHOST(0x8, 0x0)
 		RSPRECHOST(0x2, 0xc)
@@ -920,6 +966,7 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0x6, 0x7)
 		RSPRECHOST(0x5, 0x1)
 		RSPRECHOST(0xb, 0xf)
+			RSPRECHOSTHI(0xe, 0x9)
 		RSPRECHOST(0xc, 0x3)
 		RSPRECHOST(0x0, 0xd)
 
@@ -927,12 +974,14 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0x3, 0x2)
 		RSPRECHOST(0x5, 0x4)
 		RSPRECHOST(0x7, 0x6)
+			RSPRECHOSTLO(0x9, 0x8)
 		RSPRECHOST(0xb, 0xa)
 		RSPRECHOST(0xd, 0xc)
 		RSPRECHOST(0xf, 0xe)
 
 		RSPRECHOST(0xa, 0xe)
 		RSPRECHOST(0x8, 0x4)
+			RSPRECHOSTHI(0xf, 0x9)
 		RSPRECHOST(0x6, 0xd)
 		RSPRECHOST(0xc, 0x1)
 		RSPRECHOST(0x2, 0x0)
@@ -946,7 +995,9 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0xe, 0xa)
 		RSPRECHOST(0x6, 0x3)
 		RSPRECHOST(0x1, 0x7)
+			RSPRECHOSTHI(0x4, 0x9)
 
+			RSPRECHOSTLO(0x9, 0x7)
 		RSPRECHOST(0x1, 0x3)
 		RSPRECHOST(0xc, 0xd)
 		RSPRECHOST(0xe, 0xb)
@@ -955,6 +1006,7 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0x0, 0x4)
 		RSPRECHOST(0x8, 0xf)
 
+			RSPRECHOSTHI(0x0, 0x9)
 		RSPRECHOST(0x7, 0x5)
 		RSPRECHOST(0x4, 0x2)
 		RSPRECHOST(0xf, 0xa)
@@ -970,10 +1022,10 @@ __host__ void quark_blake512_cpu_setBlock_80(uint64_t *pdata)
 		RSPRECHOST(0xd, 0x4)
 		RSPRECHOST(0x5, 0x7)
 		RSPRECHOST(0xe, 0xf)
-
+			RSPRECHOSTLO(0x9, 0x1)
 
 	CUDA_SAFE_CALL(cudaMemcpyToSymbol(Hostprecalc, v, 16 * sizeof(uint64_t), 0, cudaMemcpyHostToDevice));
-	cudaMemcpyToSymbol(pre, prehost, 220 * 8, 0, cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(pre, prehost, 224 * 8, 0, cudaMemcpyHostToDevice);
 
 }
 
