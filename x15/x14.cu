@@ -28,6 +28,7 @@ extern "C" {
 
 // Memory for the hash functions
 static uint32_t *d_hash[MAX_GPUS];
+static uint32_t endiandata[MAX_GPUS][20];
 
 extern void quark_blake512_cpu_init(int thr_id);
 extern void quark_blake512_cpu_setBlock_80(uint64_t *pdata);
@@ -154,7 +155,6 @@ extern "C" int scanhash_x14(int thr_id, uint32_t *pdata,
 	unsigned long *hashes_done)
 {
 	const uint32_t first_nonce = pdata[19];
-	uint32_t endiandata[20];
 
 	int intensity = (device_sm[device_map[thr_id]] > 500) ? 256 * 256 * 20 : 256 * 256 * 10;
 	uint32_t simdthreads = (device_sm[device_map[thr_id]] > 500) ? 64 : 32;
@@ -164,7 +164,7 @@ extern "C" int scanhash_x14(int thr_id, uint32_t *pdata,
 	throughput = min(throughput, max_nonce - first_nonce);
 
 	if (opt_benchmark)
-		((uint32_t*)ptarget)[7] = 0x000f;
+		((uint32_t*)ptarget)[7] = 0x0f;
 
 	if (!init[thr_id])
 	{
@@ -189,7 +189,7 @@ extern "C" int scanhash_x14(int thr_id, uint32_t *pdata,
 	}
 
 	for (int k = 0; k < 20; k++)
-		be32enc(&endiandata[k], ((uint32_t*)pdata)[k]);
+		be32enc(&endiandata[thr_id][k], ((uint32_t*)pdata)[k]);
 
 	if (opt_n_gputhreads > 1)
 	{
@@ -223,8 +223,8 @@ extern "C" int scanhash_x14(int thr_id, uint32_t *pdata,
 			const uint32_t Htarg = ptarget[7];
 			uint32_t vhash64[8];
 			/* check now with the CPU to confirm */
-			be32enc(&endiandata[19], foundNonce);
-			x14hash(vhash64, endiandata);
+			be32enc(&endiandata[thr_id][19], foundNonce);
+			x14hash(vhash64, endiandata[thr_id]);
 
 			if (vhash64[7] <= Htarg && fulltest(vhash64, ptarget)) {
 				int res = 1;
@@ -234,6 +234,9 @@ extern "C" int scanhash_x14(int thr_id, uint32_t *pdata,
 					pdata[21] = secNonce;
 					res++;
 				}
+				if (opt_benchmark)
+					applog(LOG_INFO, "GPU #%d Found nounce %08x", thr_id, foundNonce);
+
 				pdata[19] = foundNonce;
 				return res;
 			}
