@@ -1,7 +1,7 @@
 #include "cuda_helper.h"
 #include "cuda_vector.h"
 
-__constant__ static __align__(16) uint32_t c_E8_bslice32[42][8] = {
+__constant__ static __align__(16) uint2 c_E8_bslice32[42][8] = {
 	// Round 0 (Function0)
 		{ 0xa2ded572, 0x90d6ab81, 0x67f815df, 0xf6875a4d, 0x0a15847b, 0xc54f9f4e, 0x571523b7, 0x402bd1c3 },
 		{ 0xe03a98ea, 0xb4960266, 0x9cfa455c, 0x8a53bbf2, 0x99d2c503, 0x1a1456b5, 0x9a99b266, 0x31a2db88 }, // 1
@@ -134,7 +134,7 @@ __device__ __forceinline__ void SWAP1(uint32_t *x)
       m1 ^= (temp0 & (m0));        \
       m2 ^= temp0;
 
-static __device__ void Sbox_and_MDS_layer(uint32_t x[8][4], const int rnd)
+static __device__  __forceinline__  void Sbox_and_MDS_layer(uint32_t x[8][4], const int rnd)
 {
 	uint2* cc = (uint2*)&c_E8_bslice32[rnd];
 
@@ -149,7 +149,7 @@ static __device__ void Sbox_and_MDS_layer(uint32_t x[8][4], const int rnd)
 	}
 }
 
-__device__  void RoundFunction(uint32_t x[8][4], uint32_t roundnumber)
+__device__  __forceinline__ void RoundFunction(uint32_t x[8][4], uint32_t roundnumber)
 {
 	Sbox_and_MDS_layer(x, roundnumber);
 
