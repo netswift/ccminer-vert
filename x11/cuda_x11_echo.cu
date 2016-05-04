@@ -43,7 +43,7 @@ __device__ __forceinline__ void AES_2ROUND(
 __device__ __forceinline__ void cuda_echo_round(
 	const uint32_t *const __restrict__ sharedMemory, uint32_t *const __restrict__  hash)
 {
-	const uint32_t P[48] = {
+	const __align__(16) uint32_t P[48] = {
 		0xe7e9f5f5,
 		0xf5e7e9f5,
 		0xb3b36b23,
@@ -299,10 +299,10 @@ __device__ __forceinline__ void cuda_echo_round(
 				 bcx = (mul27(t2 >> 7) ^ ((bc^t2) << 1));
 				 cdx = (mul27(t3 >> 7) ^ ((cd^t3) << 1));
 
-				W[idx + i] = abx ^ bc ^ d;
-				W[idx + i + 4] = bcx ^ a ^ cd;
-				W[idx + i + 8] = cdx ^ ab ^ d;
-				W[idx + i + 12] = abx ^ bcx ^ cdx ^ ab ^ c;
+				 W[idx + i] = xor3x(abx, bc, d);
+				 W[idx + i + 4] = xor3x(bcx, a, cd);
+				 W[idx + i + 8] = xor3x(cdx, ab, d);
+				 W[idx + i + 12] = xor3x(xor3x(abx, bcx, cdx), ab, c);
 			}
 		}
 	}
@@ -462,7 +462,7 @@ __global__
 __launch_bounds__(128, 5)
 void x11_echo512_gpu_hash_64_final(uint32_t threads, uint32_t startNounce, const uint64_t *const __restrict__ g_hash, uint32_t *const __restrict__ d_found, uint32_t target)
 {
-	uint32_t P[48] = {
+	const __align__(16) uint32_t P[48] = {
 		0xe7e9f5f5,
 		0xf5e7e9f5,
 		0xb3b36b23,
@@ -849,10 +849,10 @@ void x11_echo512_gpu_hash_64_final(uint32_t threads, uint32_t startNounce, const
 					bcx = mul27(t2 >> 7) ^ ((bc^t2) << 1);
 					cdx = mul27(t3 >> 7) ^ ((cd^t3) << 1);
 
-					W[idx + i] = abx ^ bc ^ d;
-					W[idx + i + 4] = bcx ^ a ^ cd;
-					W[idx + i + 8] = cdx ^ ab ^ d;
-					W[idx + i + 12] = abx ^ bcx ^ cdx ^ ab ^ c;
+					W[idx + i] = xor3x( abx,bc,d);
+					W[idx + i + 4] = xor3x(bcx , a , cd);
+					W[idx + i + 8] = xor3x(cdx , ab , d);
+					W[idx + i + 12] = xor3x(xor3x(abx , bcx , cdx) , ab , c);
 
 				}
 			}
@@ -888,10 +888,10 @@ void x11_echo512_gpu_hash_64_final(uint32_t threads, uint32_t startNounce, const
 
 		bc = W[23] ^ W[43];
 		t2 = (bc & 0x80808080);
-		uint32_t test = mul27(t2 >> 7) ^ ((bc^t2) << 1) ^ W[3] ^ W[43] ^ W[63];
+		uint32_t test = xor3x(xor3x(mul27(t2 >> 7) , ((bc^t2) << 1) , W[3]) , W[43] , W[63]);
 		bc = W[55] ^ W[11];
 		t2 = (bc & 0x80808080);
-		test ^= mul27(t2 >> 7) ^ ((bc^t2) << 1) ^ W[35] ^ W[11] ^ W[31] ^ backup;
+		test = test ^ mul27(t2 >> 7) ^ ((bc^t2) << 1) ^ W[35] ^ W[11] ^ W[31] ^ backup;
 		if (test <= target)
 		{
 			uint32_t tmp = atomicCAS(d_found, 0xffffffff, nounce);

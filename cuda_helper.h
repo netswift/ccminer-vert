@@ -248,6 +248,7 @@ uint64_t xor1(const uint64_t a, const uint64_t b)
 #define xor1(a,b) (a ^ b)
 #endif
 
+
 #if USE_XOR_ASM_OPTS
 // device asm for whirpool
 __device__ __forceinline__
@@ -256,13 +257,48 @@ uint64_t xor3(const uint64_t a, const uint64_t b, const uint64_t c)
 	uint64_t result;
 	asm("xor.b64 %0, %2, %3;\n\t"
 	    "xor.b64 %0, %0, %1;\n\t"
-		/* output : input registers */
+		// output : input registers +/
 		: "=l"(result) : "l"(a), "l"(b), "l"(c));
 	return result;
 }
 #else
 #define xor3(a,b,c) (a ^ b ^ c)
 #endif
+
+//LUT 3x 
+static __device__ __forceinline__ uint32_t xor3x(uint32_t a, uint32_t b, uint32_t c)
+{
+		uint32_t result;
+	 	asm("lop3.b32 %0, %1, %2, %3, 0x96;" : "=r"(result) : "r"(a), "r"(b), "r"(c)); //0x96 = 0xF0 ^ 0xCC ^ 0xAA 
+		return result;	
+}
+__device__ __forceinline__
+uint2 xor3x(const uint2 a, const uint2 b, const uint2 c)
+{
+	 uint2 result;
+//	 #if __CUDA_ARCH__ > 500
+		asm("lop3.b32 %0, %1, %2, %3, 0x96;" : "=r"(result.x) : "r"(a.x), "r"(b.x), "r"(c.x)); //0x96 = 0xF0 ^ 0xCC ^ 0xAA 
+	 	asm("lop3.b32 %0, %1, %2, %3, 0x96;" : "=r"(result.y) : "r"(a.y), "r"(b.y), "r"(c.y)); //0x96 = 0xF0 ^ 0xCC ^ 0xAA 
+//	 #else
+//	 	result = a^b^c;
+//	 #endif
+	 	return result;
+}
+
+__device__ __forceinline__ uint2 chi(const uint2 a, const uint2 b, const uint2 c)
+{ 
+	 uint2 result;
+//	 #if __CUDA_ARCH__ > 500
+		asm("lop3.b32 %0, %1, %2, %3, 0xD2;" : "=r"(result.x) : "r"(a.x), "r"(b.x), "r"(c.x)); //0xD2 = 0xF0 ^ ((~0xCC) & 0xAA) 
+	 	asm("lop3.b32 %0, %1, %2, %3, 0xD2;" : "=r"(result.y) : "r"(a.y), "r"(b.y), "r"(c.y)); //0xD2 = 0xF0 ^ ((~0xCC) & 0xAA) 
+//	 #else
+//	 	result = a ^ (~b) & c;
+//	 #endif
+	 	return result;
+}
+
+
+
 
 #if USE_XOR_ASM_OPTS
 // device asm for whirpool
