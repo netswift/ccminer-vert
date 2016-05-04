@@ -41,7 +41,7 @@ static __inline uint32_t swab32_if(uint32_t val, bool iftrue)
 	return iftrue ? swab32(val) : val;
 }
 
-static bool init[MAX_GPUS] = { 0 };
+bool init[MAX_GPUS] = { 0 };
 
 int scanhash_skeincoin(int thr_id, uint32_t *pdata,
 								  const uint32_t *ptarget, uint32_t max_nonce,
@@ -50,7 +50,7 @@ int scanhash_skeincoin(int thr_id, uint32_t *pdata,
 	const uint32_t first_nonce = pdata[19];
 	const bool swap = true;
 
-	uint32_t intensity = (device_sm[device_map[thr_id]] > 500) ? 1 << 25 : 1 << 24;;
+	uint32_t intensity = (device_sm[device_map[thr_id]] > 500) ? 1 << 26 : 1 << 25;
 	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity); // 256*4096
 	throughput = min(throughput, max_nonce - first_nonce);
 
@@ -79,13 +79,13 @@ int scanhash_skeincoin(int thr_id, uint32_t *pdata,
 	skein512_cpu_setBlock_80(thr_id, (void*)endiandata);
 	do
 	{
-		if(scan_abort_flag || work_restart[thr_id].restart) return 0;
+//		if(scan_abort_flag || work_restart[thr_id].restart) return 0;
 		if (device_sm[device_map[thr_id]] > 500)
 			skein512_cpu_hash_80_52(thr_id, throughput, pdata[19], swap, ((uint64_t*)ptarget)[3], foundnonces[thr_id]);
 		else
 			skein512_cpu_hash_80_50(thr_id, throughput, pdata[19], swap, ((uint64_t*)ptarget)[3], foundnonces[thr_id]);
 		
-		if (foundnonces[thr_id][0] != 0xffffffff && (!scan_abort_flag || !work_restart[thr_id].restart))
+		if (foundnonces[thr_id][0] != 0xffffffff)
 		{
 			uint32_t vhash64[8];
 
@@ -125,7 +125,7 @@ int scanhash_skeincoin(int thr_id, uint32_t *pdata,
 			}
 		}
 		pdata[19] += throughput;
-	} while (pdata[19] < max_nonce && !scan_abort_flag && !work_restart[thr_id].restart);
+	} while (!scan_abort_flag && !work_restart[thr_id].restart && ((uint64_t)max_nonce > ((uint64_t)(pdata[19]) + (uint64_t)throughput)));
 
 	*hashes_done = pdata[19] - first_nonce;
 	return 0;
