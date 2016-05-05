@@ -289,7 +289,8 @@ emptyNonceVector:
 
         pdata[19] += throughput;
 
-    } while (pdata[19] < max_nonce && !scan_abort_flag && !work_restart[thr_id].restart);
+	} while (!scan_abort_flag && !work_restart[thr_id].restart && ((uint64_t)max_nonce > ((uint64_t)(pdata[19]) + (uint64_t)throughput)));
+
     *hashes_done = pdata[19] - first_nonce;
 
 exit:
