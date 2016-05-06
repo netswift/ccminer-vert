@@ -31,7 +31,7 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	const uint32_t first_nonce = pdata[19];
 
 	if (opt_benchmark)
-		((uint32_t*)ptarget)[7] = 0x05ff;
+		((uint32_t*)ptarget)[7] = 0x01ff;
 
 	//	const int throughput = gpus_intensity[thr_id] ? 256 * 64 * gpus_intensity[thr_id] : 256 * 64 * 3.5;
 	int intensity = (256 * 64 * 2);
@@ -44,27 +44,27 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	}
 	else if (strstr(props.name, "980"))
 	{
+#if CUDART_VERSION >= 7000
 		intensity = (256 * 64 * 5);
-	}
-	else if (strstr(props.name, "980 Ti"))
-	{
-		intensity = (256 * 64 * 5);
+#else
+		intensity = (256 * 64 * 4);
+#endif
 	}
 	else if (strstr(props.name, "750 Ti"))
 	{
-		intensity = 2 << 14;
+#if CUDART_VERSION >= 7000
+		intensity = (256 * 64 * 3.5);
+#else
+		intensity = (256 * 64 * 3);
+#endif
 	}
 	else if (strstr(props.name, "750"))
 	{
-		intensity = 2 << 13;
+		intensity = ((256 * 64 * 3.5) / 2);
 	}
 	else if (strstr(props.name, "960"))
 	{
-		intensity = 2 << 14;
-	}
-	else if (strstr(props.name, "950"))
-	{
-		intensity = 2 << 14;
+		intensity = (256 * 64 * 3.5);
 	}
 
 	uint32_t throughput = device_intensity(device_map[thr_id], __func__, intensity) / 2;
@@ -76,9 +76,17 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 	if (!init[thr_id])
 	{
 		cudaSetDevice(device_map[thr_id]);
+		//		cudaDeviceReset();
+		//		cudaSetDeviceFlags(cudaStreamNonBlocking);
+//		cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
 		cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-		CUDA_SAFE_CALL(cudaMalloc(&d_hash1[thr_id], 32 * 128 * sizeof(uint64_t) * throughput));
-		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 32 * 128 * sizeof(uint64_t) * throughput));
+#if CUDART_VERSION >= 7000
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash1[thr_id], 32 * 130 * sizeof(uint64_t) * throughput));
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 32 * 130 * sizeof(uint64_t) * throughput));
+#else
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash1[thr_id], 32 * 130 * sizeof(uint64_t) * throughput));
+		CUDA_SAFE_CALL(cudaMalloc(&d_hash2[thr_id], 32 * 130 * sizeof(uint64_t) * throughput));
+#endif
 
 		CUDA_SAFE_CALL(cudaMalloc(&t_hash1[thr_id], 32 * sizeof(uint64_t) * throughput));
 		CUDA_SAFE_CALL(cudaMalloc(&t_hash2[thr_id], 32 * sizeof(uint64_t) * throughput));
@@ -129,10 +137,9 @@ extern "C" int scanhash_neoscrypt(int stratum, int thr_id, uint32_t *pdata,
 				*hashes_done = foundNonce - first_nonce + 1;
 				return 1;
 			}
-			else 
-			{
+			else {
 				*hashes_done = foundNonce - first_nonce + 1; // keeps hashrate calculation happy
-				if(vhash64[7] != ptarget[7]) applog(LOG_INFO, "GPU #%d: result for nonce $%08X does not validate on CPU!", thr_id, foundNonce);
+				applog(LOG_INFO, "GPU #%d: result for nonce $%08X does not validate on CPU!", thr_id, foundNonce);
 			}
 
 		}
