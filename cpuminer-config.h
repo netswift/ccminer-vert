@@ -63,7 +63,7 @@
 #define HAVE_STRING_H 1
 
 /* Define to 1 if you have the <syslog.h> header file. */
-//#define HAVE_SYSLOG_H 1
+#define HAVE_SYSLOG_H 1
 
 /* Define to 1 if you have the <sys/endian.h> header file. */
 /* #undef HAVE_SYS_ENDIAN_H */
@@ -193,5 +193,5 @@
 /* Define curl_free() as free() if our version of curl lacks curl_free. */
 /* #undef curl_free */
 
-/* Define to `uint32_t' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
