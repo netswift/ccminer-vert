@@ -169,6 +169,7 @@ static const char *algo_names[] = {
 };
 
 bool opt_broken_neo_wallet = false; // HACK: Drop this flag once neoscrypt wallets are fixed to send 80byte data
+bool opt_eco_mode = false;
 bool opt_debug = false;
 bool opt_protocol = false;
 bool opt_benchmark = false;
@@ -357,6 +358,7 @@ Options:\n\
   -h, --help            display this help text and exit\n\
   -X,  --XIntensity     intensity GPU intensity(default: auto) \n\
       --broken-neo-wallet	Use 84byte data for broken neoscrypt wallets.\n\
+      --eco				Use Eco mode.\n\
 ";
 
 char const short_options[] = "SX:a:c:i:Dhp:Px:qr:R:s:t:T:o:u:O:Vd:f:mv:N:n:b:g:l:L:e:M:C";
@@ -408,7 +410,8 @@ struct option const options[] = {
 	{ "diff", 1, NULL, 'f' },
 	{ "X", 1, NULL, 'X'},
 	{ "cpu-mining", 0, NULL, 'C'},
-	{ "broken-neo-wallet", 0, NULL, 1030},
+	{ "broken-neo-wallet", 0, NULL, 1030 },
+	{ "eco", 0, NULL, 1080 },
 	{ 0, 0, 0, 0 }
 };
 
@@ -2552,6 +2555,9 @@ static void parse_arg(int key, char *arg)
 	case 1030:
 		opt_broken_neo_wallet = true;
 		break;
+	case 1080:
+		opt_eco_mode = true;
+		break;
 	case 'D':
 		opt_debug = true;
 		break;
@@ -2716,7 +2722,7 @@ int main(int argc, char *argv[])
 	opt_syslog_pfx = strdup(PROGRAM_NAME);
 	opt_api_allow = strdup("127.0.0.1"); /* 0.0.0.0 for all ips */
 
-	printf("SP-Mod 1.5.79 \n");
+	printf("SP-Mod 1.5.80 \n");
 #ifdef _MSC_VER
 	printf("Compiled with Visual C++ %d ", _MSC_VER / 100);
 #else
